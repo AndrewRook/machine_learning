@@ -10,7 +10,7 @@ def max_entropy_dice_priors(nsides = 6, mu=3.5):
 
     #Finally, compute the probabilities on each face:
     ivals = np.linspace(1.,nsides,nsides)
-    pivals = np.exp(-1.+lambda0)*np.exp(ivals*lambda1)/float(nsides)
+    pivals = np.exp(-1.-lambda0)*np.exp(-ivals*lambda1)/float(nsides)
     print lambda0,lambda1
     print pivals
 
@@ -26,4 +26,4 @@ def compute_lambda0(lambda0,lambda1,nsides,mu):
 
 if __name__ == "__main__":
     max_entropy_dice_priors(nsides=6,mu=3.5)
-    max_entropy_dice_priors(nsides=6,mu=3.25)
+    max_entropy_dice_priors(nsides=6,mu=5.9)
