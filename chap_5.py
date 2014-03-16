@@ -1,4 +1,5 @@
 import numpy as np
+import math
 import scipy.optimize as sciopt
 from matplotlib import pyplot as plt
 from scipy import stats, interpolate
@@ -154,43 +155,57 @@ def compute_5_15():
 
     fig.savefig('chap_5_5-15.png',dpi=300)
 
+def likelihood_5_17(xi,mu1,g1,sig1,sig2):
+    mu1_2d,g1_2d = np.meshgrid(mu1,g1)
+    gauss_pdf_sig1 = np.exp(-(xi-mu1_2d.reshape(mu1_2d.shape+(1,)))**2/(2.*sig1))/(sig1*np.sqrt(2.*math.pi))
+    gauss_pdf_sig2 = np.exp(-(xi-mu1_2d.reshape(mu1_2d.shape+(1,)))**2/(2.*sig2))/(sig2*np.sqrt(2.*math.pi))
+    product = np.prod(gauss_pdf_sig1[:,:,1:]+gauss_pdf_sig2[:,:,1:],axis=-1)
+    coefficient = gauss_pdf_sig1[:,:,0]*g1_2d+(1.-g1_2d)*gauss_pdf_sig2[:,:,0]
+    return coefficient*product,g1_2d
+def compute_5_17():
+    #Based on code from AstroML and used in Statistics, Data Mining, and Machine Learning in Astronomy
 
+    #Set the number of points and their standard deviations for both distributions:
+    N1 = 48
+    N2 = 2
+    mu = 0
+    sig1 = 1
+    sig2 = 5
+    sig_reject = 10.*sig1
+    reject_conf = 0.683 #Confidence level to reject outlier:
 
-# def logl_poisson(xi_inp,yi_inp,a,b,ydeltafactor=1):
-#     xi = xi_inp.ravel()
-#     yi = yi_inp.ravel()
-#     a = ydeltafactor*a.reshape(a.shape + (1,))
-#     b = ydeltafactor*b.reshape(b.shape + (1,))
-#     yyi = a * xi + b
+    sigs = np.zeros(N1+N2)
+    sigs[:N1] = sig1
+    sigs[N1:] = sig2
 
-#     #Sum over bin:
-#     return np.sum(yi * np.log(yyi) - yyi, -1)
+    xi = np.random.normal(mu,sigs)
 
-# def compute_5_15():
-#     N = 50
-#     a_true = 0.01
-#     xmin = 0.
-#     xmax = 10.
-#     nbins = 5
-    
-#     W = xmax-xmin
-#     xonehalf = (xmin+xmax)/2.
-#     b_true = 1./W-a_true*xonehalf
-#     lin_dist = astroML.stats.random.linear(xmin,xmax,a_true)
-#     rand_data = lin_dist.rvs(N)
-#     a = np.linspace(0.00001,0.04,71)
-#     b = np.linspace(0.00001,0.15,71)
+    #Construct a mu1,g1 parameter space:
+    mu1 = np.linspace(-5,5,100)
+    g1 = np.linspace(0,1,50)
 
-#     #Compute the histogram:
-#     yi,bins = np.histogram(rand_data,bins=np.linspace(xmin,xmax,nbins+1))
-#     xi = (bins[:-1]+bins[1:])/2.
-#     logl_p = logl_poisson(xi,yi,a,b,ydeltafactor=N*(xmax-xmin)/float(nbins))
-#     #Normalize:
-#     logl_p -= np.max(logl_p)
-#     print np.where(logl_p == np.max(logl_p))
-    
+    l1,g1_2d = likelihood_5_17(xi[::-1],mu1,g1,sig1,sig_reject)
+    l1 /= np.max(l1)
+
+    ax = plt.figure().add_subplot(111)
+    #print mu1[0],mu[-1],g1[0],g1[-1]
+    ax.imshow(l1,origin='lower',aspect='auto',cmap=plt.cm.binary,extent=[mu1[0],mu1[-1],g1[0],g1[-1]])
+    ax.contour(mu1,g1,convert_to_stdev(np.log(l1)),levels=(0.683,0.955,0.997),colors='red')
+    ax.figure.savefig('chap_5_5-17.png',dpi=300)
+
+    #Check which points should be rejected:
+    for i in range(len(xi)):
+        newxi = np.roll(xi,-i)
+        #print i,newxi
+        li,g1_2d = likelihood_5_17(newxi,mu1,g1,sig1,sig_reject)
+        li /= np.max(li)
+        stdevs = convert_to_stdev(np.log(li))
+        #print logli.shape,g1_2d.shape
+        g1_in_rejection = np.where(stdevs < reject_conf,g1_2d,np.ones(g1_2d.shape))
+        print i,g1_in_rejection.min()
+        
 if __name__ == "__main__":
     #max_entropy_dice_priors(nsides=6,mu=3.5)
     #max_entropy_dice_priors(nsides=6,mu=5.9)
 
-    compute_5_15()
+    compute_5_17()
