@@ -1,10 +1,12 @@
 import numpy as np
 import math
 import scipy.optimize as sciopt
+import pymc
 from matplotlib import pyplot as plt
 from scipy import stats, interpolate
 from astroML.stats.random import linear
 from astroML.plotting.mcmc import convert_to_stdev
+from astroML.density_estimation import GaussianMixture1D
 
 
 def max_entropy_dice_priors(nsides = 6, mu=3.5):
@@ -188,7 +190,6 @@ def compute_5_17():
     l1 /= np.max(l1)
 
     ax = plt.figure().add_subplot(111)
-    #print mu1[0],mu[-1],g1[0],g1[-1]
     ax.imshow(l1,origin='lower',aspect='auto',cmap=plt.cm.binary,extent=[mu1[0],mu1[-1],g1[0],g1[-1]])
     ax.contour(mu1,g1,convert_to_stdev(np.log(l1)),levels=(0.683,0.955,0.997),colors='red')
     ax.figure.savefig('chap_5_5-17.png',dpi=300)
@@ -196,16 +197,42 @@ def compute_5_17():
     #Check which points should be rejected:
     for i in range(len(xi)):
         newxi = np.roll(xi,-i)
-        #print i,newxi
         li,g1_2d = likelihood_5_17(newxi,mu1,g1,sig1,sig_reject)
         li /= np.max(li)
         stdevs = convert_to_stdev(np.log(li))
-        #print logli.shape,g1_2d.shape
         g1_in_rejection = np.where(stdevs < reject_conf,g1_2d,np.ones(g1_2d.shape))
         print i,g1_in_rejection.min()
-        
+
+def mcmc_example():
+    #The MCMC example from SDMML, modified a bit:
+    sigma_true = 1.2
+    mu_true = 0.0
+    numpoints = 100
+
+    #Generate random gaussian data:
+    np.random.seed(2)
+    xi = np.random.normal(loc=mu_true,scale=sigma_true,size=numpoints)
+
+    #Define the priors:
+    mu_p = pymc.Uniform('mu',-5,5)#Uniform prior on mu
+    sigma_p = sigma_true#fixed (known) sigma
+    tau_p = 1./sigma_p**2
+    M = pymc.Normal('M',mu_p,tau_p,observed=True,value=xi)
+    model = {'M':M,'mu':mu_p}
+
+    #Run the model:
+    S = pymc.MCMC(model)
+    S.sample(20000,burn=10000)
+    mu_sample = S.trace('mu')[:]
+
+    #Print results:
+    print "Bayesian (MCMC): {0:.3f} +/- {1:.3f}".format(np.mean(mu_sample),np.std(mu_sample))
+    print "Frequentist: {0:.3f} +/- {1:.3f}".format(np.mean(xi),np.std(xi,ddof=1)/np.sqrt(numpoints))
+
+
 if __name__ == "__main__":
     #max_entropy_dice_priors(nsides=6,mu=3.5)
     #max_entropy_dice_priors(nsides=6,mu=5.9)
 
-    compute_5_17()
+    #compute_5_17()
+    #mcmc_example()
