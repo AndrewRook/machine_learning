@@ -24,8 +24,10 @@ def SDSS_PCA():
     spectra = sdss_corrected_spectra.reconstruct_spectra(data)
     wavelengths = sdss_corrected_spectra.compute_wavelengths(data)
 
+    print spectra.shape,wavelengths.shape
     def compute_PCA(n_components=5):
         spec_mean = spectra.mean(axis=0)
+        print spec_mean.shape
 
         #Randomized PCA is faster (according to astroML):
         pca = RandomizedPCA(n_components-1)
